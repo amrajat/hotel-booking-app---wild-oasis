@@ -1,10 +1,13 @@
 import styled from "styled-components";
 import { formatCurrency } from "../../utils/helpers";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteCabin } from "../../services/apiCabins";
-import toast from "react-hot-toast";
 import { useState } from "react";
 import CreateCabinForm from "../cabins/CreateCabinForm";
+import { useDeleteCabin } from "./useDeleteCabin";
+import { HiDocumentDuplicate, HiPencil, HiTrash } from "react-icons/hi2";
+import { useCreateCabin } from "./useCreateCabin";
+import Modal from "../../ui/Modal";
+import ConfirmDelete from "../../ui/ConfirmDelete";
+import Menus from "../../ui/Menus";
 
 const TableRow = styled.div`
   display: grid;
@@ -47,6 +50,9 @@ const Discount = styled.div`
 
 function CabinRow({ cabin }) {
   const [showForm, setShowForm] = useState(false);
+  const { isDeleting, deleteCabin } = useDeleteCabin();
+  const { isCreating, createCabin } = useCreateCabin();
+
   const {
     id: cabinID,
     image,
@@ -54,38 +60,57 @@ function CabinRow({ cabin }) {
     maxCapacity,
     regularPrice,
     discount,
+    description,
   } = cabin;
-  // console.log(cabin);
-  const queryClient = useQueryClient();
 
-  const { isLoading: isDeleting, mutate } = useMutation({
-    mutationFn: deleteCabin,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["cabins"],
-      });
-      toast.success("Deleted Successfully");
-    },
-    onError: () => toast.error("Could not deleted"),
-  });
+  function onDuplicate() {
+    createCabin({
+      name: `copy of ${name}`,
+      image,
+      maxCapacity,
+      regularPrice,
+      discount,
+      description,
+    });
+  }
 
   return (
-    <>
-      <TableRow role="row">
-        <Img src={`${image}`}></Img>
-        <Cabin>{name}</Cabin>
-        <Cabin>Fits upto {maxCapacity}</Cabin>
-        <Price>{formatCurrency(regularPrice)}</Price>
-        <Discount>{formatCurrency(discount)}</Discount>
-        <div>
-          <button onClick={() => setShowForm((show) => !show)}>Edit</button>
-          <button onClick={() => mutate(cabinID)}>
-            {isDeleting ? "Deleting" : "Delete"}
-          </button>
-        </div>
-      </TableRow>
-      {showForm && <CreateCabinForm />}
-    </>
+    <TableRow role="row">
+      <Img src={`${image}`}></Img>
+      <Cabin>{name}</Cabin>
+      <Cabin>Fits upto {maxCapacity}</Cabin>
+      <Price>{formatCurrency(regularPrice)}</Price>
+      <Discount>{formatCurrency(discount)}</Discount>
+
+      <Modal>
+        <Menus.Menu>
+          <Menus.Toggle id={cabinID} />
+          <Menus.List id={cabinID}>
+            <Menus.Button icon={<HiDocumentDuplicate />} onClick={onDuplicate}>
+              Duplicate
+            </Menus.Button>
+            <Modal.Open opens="edit">
+              <Menus.Button icon={<HiPencil />}>Edit</Menus.Button>
+            </Modal.Open>
+            <Modal.Open opens="delete">
+              <Menus.Button icon={<HiTrash />}>Delete</Menus.Button>
+            </Modal.Open>
+          </Menus.List>
+
+          <Modal.Window name="edit">
+            <CreateCabinForm cabinToEdit={cabinID} />
+          </Modal.Window>
+
+          <Modal.Window name="delete">
+            <ConfirmDelete
+              resourceName="cabins"
+              disabled={isDeleting}
+              onConfirm={() => deleteCabin(cabinID)}
+            />
+          </Modal.Window>
+        </Menus.Menu>
+      </Modal>
+    </TableRow>
   );
 }
 
